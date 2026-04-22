@@ -46,16 +46,10 @@
     },
     "extra": {
       "supabaseUrl": "REPLACE_WITH_ZZ_SUPABASE_URL",
-      "supabaseAnonKey": "REPLACE_WITH_ZZ_SUPABASE_ANON_KEY",
-      "eas": {
-        "projectId": "REPLACE_WITH_ZZ_EAS_PROJECT_ID"
-      }
+      "supabaseAnonKey": "REPLACE_WITH_ZZ_SUPABASE_ANON_KEY"
     },
     "runtimeVersion": {
       "policy": "appVersion"
-    },
-    "updates": {
-      "url": "REPLACE_WITH_ZZ_EAS_UPDATES_URL"
     },
     "owner": "jimmckeown"
   }
