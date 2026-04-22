@@ -15,9 +15,7 @@ import {
   getSessionsThisMonth,
   getAssessmentCoverage,
 } from '../../utils/dashboardStats';
-import { colors, spacing, borderRadius, shadows } from '../../constants/colors';
-
-const GRADIENT = ['#0984E3', '#E72D4D'];
+import { colors, spacing, borderRadius, shadows, GRADIENT } from '../../constants/colors';
 
 export default function HomeScreen({ navigation }) {
   const { profile } = useAuth();
@@ -117,7 +115,7 @@ export default function HomeScreen({ navigation }) {
             Welcome, {profile?.first_name || 'User'}!
           </Text>
           <Text variant="bodyMedium" style={styles.roleText}>
-            {[profile?.job_title, profile?.assigned_school].filter(Boolean).join(' · ')}
+            {profile?.assigned_school || ''}
           </Text>
           <View style={styles.headerStats}>
             <View style={styles.headerStat}>
@@ -244,7 +242,7 @@ export default function HomeScreen({ navigation }) {
                 style={styles.recordSessionBorder}
               >
                 <View style={styles.recordSessionInner}>
-                  <Ionicons name="add-circle-outline" size={16} color="#0984E3" />
+                  <Ionicons name="add-circle-outline" size={16} color={colors.primaryLight} />
                   <Text style={styles.recordSessionText}>Record Session</Text>
                 </View>
               </LinearGradient>
@@ -536,7 +534,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   recordSessionText: {
-    color: '#0984E3',
+    color: colors.primaryLight,
     fontSize: 13,
     fontWeight: '600',
   },

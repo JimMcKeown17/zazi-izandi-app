@@ -3,7 +3,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image, Pr
 import { TextInput, Button, Text, Snackbar, ActivityIndicator } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing } from '../../constants/colors';
+import { colors, spacing, GRADIENT } from '../../constants/colors';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -45,7 +45,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
           <Image
-            source={require('../../../assets/masi-mobile-icon.png')}
+            source={require('../../../assets/zazi-izandi-icon.png')}
             style={styles.logo}
           />
           <Text variant="bodyLarge" style={styles.subtitle}>
@@ -85,7 +85,7 @@ export default function LoginScreen({ navigation }) {
             style={[styles.button, loading && styles.buttonDisabled]}
           >
             <LinearGradient
-              colors={['#0984E3', '#E72D4D']}
+              colors={GRADIENT}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.buttonGradient}

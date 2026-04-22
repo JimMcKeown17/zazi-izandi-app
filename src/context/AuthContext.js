@@ -97,7 +97,7 @@ export const AuthProvider = ({ children }) => {
   const resetPassword = async (email) => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'masi-app://reset-password',
+        redirectTo: 'zz-app://reset-password',
       });
       if (error) throw error;
       return { error: null };

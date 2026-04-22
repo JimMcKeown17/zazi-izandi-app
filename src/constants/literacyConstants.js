@@ -1,4 +1,4 @@
-// Letter teaching order as used on the Masi paper tracker.
+// Letter teaching order as used on the Zazi iZandi paper tracker.
 // Read vertically down each column, then left to right across columns.
 // Note: 'r' is not included — matches the paper tracker exactly.
 export const LETTER_ORDER = [

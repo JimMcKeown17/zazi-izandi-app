@@ -50,19 +50,19 @@ const errorStyles = RNStyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F7F7F7',
+    backgroundColor: colors.background,
     padding: 32,
   },
   emoji: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#E72D4D',
+    color: colors.emphasis,
     marginBottom: 16,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#294A99',
+    color: colors.primary,
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -74,7 +74,7 @@ const errorStyles = RNStyleSheet.create({
     lineHeight: 22,
   },
   button: {
-    backgroundColor: '#294A99',
+    backgroundColor: colors.primary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 8,
@@ -89,30 +89,30 @@ const errorStyles = RNStyleSheet.create({
 // Initialize logger to capture console output
 logger.init();
 
-// Custom theme using Masinyusane brand colors
+// Custom theme using Zazi iZandi brand colors
 const theme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    primary: colors.primary,           // Blue #294A99
-    primaryContainer: '#E3E9F5',       // Light blue container
-    secondary: colors.accent,          // Yellow #FFDD00
-    secondaryContainer: '#FFF9CC',     // Light yellow container
-    tertiary: colors.emphasis,         // Red #E72D4D
+    primary: colors.primary,
+    primaryContainer: '#E0EAF8',       // ZZ primary-100 tone for containers
+    secondary: colors.accent,
+    secondaryContainer: '#FFF5CC',     // Light yellow container
+    tertiary: colors.emphasis,
     tertiaryContainer: '#FCEAED',      // Light red container
-    error: colors.error,               // Red #E72D4D
+    error: colors.error,
     errorContainer: '#FCEAED',
-    background: colors.background,     // #F7F7F7
-    surface: colors.surface,           // #FFFFFF
-    surfaceVariant: colors.cardBackground, // #FAFAFA
-    onPrimary: '#FFFFFF',              // Text on primary (blue) backgrounds
-    onSecondary: '#111111',            // Text on secondary (yellow) backgrounds
-    onTertiary: '#FFFFFF',             // Text on tertiary (red) backgrounds
-    onBackground: colors.text,         // #111111
-    onSurface: colors.text,            // #111111
-    outline: colors.border,            // #E5E7EB
+    background: colors.background,
+    surface: colors.surface,
+    surfaceVariant: colors.cardBackground,
+    onPrimary: '#FFFFFF',
+    onSecondary: '#111111',
+    onTertiary: '#FFFFFF',
+    onBackground: colors.text,
+    onSurface: colors.text,
+    outline: colors.border,
     outlineVariant: colors.border,
-    success: colors.success,           // Green #3FA535 (custom)
+    success: colors.success,
   },
 };
 

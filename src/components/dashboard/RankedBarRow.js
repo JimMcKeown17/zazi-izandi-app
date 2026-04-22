@@ -8,9 +8,9 @@ import { colors, spacing, borderRadius } from '../../constants/colors';
  * Green (70%+), Yellow (40-69%), Red (under 40%).
  */
 export function getBarColor(percent) {
-  if (percent >= 70) return colors.success;    // #3FA535
-  if (percent >= 40) return '#FFBB00';         // warm yellow
-  return colors.emphasis;                       // #E72D4D
+  if (percent >= 70) return colors.success;
+  if (percent >= 40) return '#FFBB00';         // warm yellow — distinct from brand yellow on purpose
+  return colors.emphasis;
 }
 
 /**

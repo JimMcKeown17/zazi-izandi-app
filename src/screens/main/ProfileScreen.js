@@ -48,7 +48,7 @@ export default function ProfileScreen({ navigation }) {
     // Confirm action due to sensitive data
     Alert.alert(
       'Export Database',
-      'This will export all local data including sensitive information. Only share with Masi support staff.',
+      'This will export all local data including sensitive information. Only share with Zazi iZandi support staff.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -77,7 +77,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleOpenTerms = async () => {
     try {
-      const url = 'https://masinyusane.org/terms';
+      const url = 'https://zazi-izandi.co.za/terms';
       const supported = await Linking.canOpenURL(url);
 
       if (supported) {
@@ -93,7 +93,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleOpenPrivacyPolicy = async () => {
     try {
-      const url = 'https://www.masinyusane.org/privacy';
+      const url = 'https://zazi-izandi.co.za/privacy';
       const supported = await Linking.canOpenURL(url);
 
       if (supported) {
@@ -189,20 +189,11 @@ export default function ProfileScreen({ navigation }) {
               </Text>
             </View>
 
-            <Divider style={styles.divider} />
-
-            <View style={styles.infoRow}>
-              <Text variant="bodySmall" style={styles.infoLabel}>Job Title</Text>
-              <Text variant="bodyLarge" style={styles.infoValue}>
-                {profile?.job_title}
-              </Text>
-            </View>
-
             {profile?.assigned_school && (
               <>
                 <Divider style={styles.divider} />
                 <View style={styles.infoRow}>
-                  <Text variant="bodySmall" style={styles.infoLabel}>Assigned School</Text>
+                  <Text variant="bodySmall" style={styles.infoLabel}>School</Text>
                   <Text variant="bodyLarge" style={styles.infoValue}>
                     {profile.assigned_school}
                   </Text>
@@ -211,7 +202,7 @@ export default function ProfileScreen({ navigation }) {
             )}
 
             <Text variant="bodySmall" style={styles.helperText}>
-              Profile information is managed by administrators
+              To change your school, contact support.
             </Text>
           </Card.Content>
         </Card>

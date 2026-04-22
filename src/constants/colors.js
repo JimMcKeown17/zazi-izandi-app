@@ -1,5 +1,8 @@
 /**
- * Masinyusane Mobile Branding (UI Spec)
+ * Zazi iZandi Mobile Branding (UI Spec)
+ *
+ * Tokens ported from the Zazi iZandi Next.js website
+ * (Zazi_iZandi_Website_2026/zazi-izandi-nextjs/app/globals.css @theme block).
  *
  * Design Principles:
  * - Blue is the default UI color for headers, nav/tabs, primary buttons, links, active states
@@ -14,16 +17,19 @@
  */
 
 export const colors = {
-  // Brand Colors
-  primary: '#294A99',        // Blue (Primary UI) - headers, nav, buttons, links
-  emphasis: '#E72D4D',       // Red (Brand/Emphasis) - highlights, callouts
-  accent: '#FFDD00',         // Yellow (Accent) - badges, icons, dividers
-  success: '#3FA535',        // Green (Success) - completed, progress
+  // Brand Colors (ZZ palette)
+  primary: '#2c5aa0',        // ZZ Blue (Primary UI) — headers, nav, buttons, links
+  primaryLight: '#5688d6',   // ZZ Blue (primary-500) — gradients, lighter accents
+  primaryDark: '#2a4d85',    // ZZ Blue (primary-800) — hover/pressed states
+  emphasis: '#e74c3c',       // ZZ Red (Brand/Emphasis) — highlights, callouts
+  accent: '#ffd641',         // ZZ Yellow (Accent) — badges, icons, dividers
+  accentDeep: '#f1c40f',     // ZZ Yellow (btn-secondary) — deeper yellow for buttons
+  success: '#3FA535',        // Green (Success) — completed, progress
 
   // Semantic Colors
-  error: '#E72D4D',          // Use brand red for errors
-  warning: '#FFDD00',        // Use brand yellow for warnings
-  info: '#294A99',           // Use brand blue for info
+  error: '#e74c3c',          // Use brand red for errors
+  warning: '#ffd641',        // Use brand yellow for warnings
+  info: '#2c5aa0',           // Use brand blue for info
 
   // Neutrals (for calm, professional feel)
   background: '#F7F7F7',     // Main background
@@ -40,9 +46,13 @@ export const colors = {
   placeholder: '#9CA3AF',    // Placeholder text
 
   // Component-specific
-  tabActive: '#294A99',      // Active tab color
+  tabActive: '#2c5aa0',      // Active tab color
   tabInactive: '#6B7280',    // Inactive tab color
 };
+
+// Shared gradient (used by Home, Login, and any future hero/header surfaces)
+// Defining it once here prevents drift when brand palette changes.
+export const GRADIENT = [colors.primaryLight, colors.emphasis];
 
 export const spacing = {
   xs: 4,

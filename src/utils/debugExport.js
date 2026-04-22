@@ -51,7 +51,7 @@ export const exportDatabase = async () => {
 
     const jsonString = JSON.stringify(exportData, null, 2);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    await shareFile(`masi-database-${timestamp}.json`, jsonString, 'application/json');
+    await shareFile(`zazi-izandi-database-${timestamp}.json`, jsonString, 'application/json');
 
     return { success: true };
   } catch (error) {
@@ -72,7 +72,7 @@ export const exportLogs = async () => {
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    await shareFile(`masi-logs-${timestamp}.txt`, logs, 'text/plain');
+    await shareFile(`zazi-izandi-logs-${timestamp}.txt`, logs, 'text/plain');
 
     return { success: true };
   } catch (error) {
