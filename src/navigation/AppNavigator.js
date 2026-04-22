@@ -17,7 +17,7 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import HomeScreen from '../screens/main/HomeScreen';
 import TimeEntriesListScreen from '../screens/main/TimeEntriesListScreen';
 import ChildrenListScreen from '../screens/main/ChildrenListScreen';
-import SessionsScreen from '../screens/main/SessionsScreen';
+import TodayScreen from '../screens/main/TodayScreen';
 import AssessmentsScreen from '../screens/main/AssessmentsScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 
@@ -80,8 +80,8 @@ function MainTabNavigator() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Children') {
             iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Sessions') {
-            iconName = focused ? 'document-text' : 'document-text-outline';
+          } else if (route.name === 'Today') {
+            iconName = focused ? 'today' : 'today-outline';
           } else if (route.name === 'Assessments') {
             iconName = focused ? 'clipboard' : 'clipboard-outline';
           }
@@ -123,9 +123,9 @@ function MainTabNavigator() {
         options={{ title: 'My Children' }}
       />
       <Tab.Screen
-        name="Sessions"
-        component={SessionsScreen}
-        options={{ title: 'Sessions' }}
+        name="Today"
+        component={TodayScreen}
+        options={{ title: 'Today' }}
       />
       <Tab.Screen
         name="Assessments"

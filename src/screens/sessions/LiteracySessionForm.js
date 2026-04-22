@@ -13,6 +13,7 @@ import {
   IconButton,
   Snackbar,
 } from 'react-native-paper';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useOffline } from '../../context/OfflineContext';
 import { colors, spacing, borderRadius, shadows } from '../../constants/colors';
@@ -24,6 +25,17 @@ import LetterTrackerBottomSheet from '../../components/session/LetterTrackerBott
 import { normalizeLanguageKey } from '../../utils/letterMastery';
 import { useClasses } from '../../context/ClassesContext';
 import { v4 as uuidv4 } from 'uuid';
+
+function formatDuration(seconds) {
+  if (seconds == null) return '';
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 
 // ---------------------------------------------------------------------------
 // Calendar helpers
@@ -181,10 +193,16 @@ function InlineCalendar({ selectedDate, onSelectDate }) {
 // ---------------------------------------------------------------------------
 // Main form
 // ---------------------------------------------------------------------------
-export default function LiteracySessionForm({ navigation }) {
+export default function LiteracySessionForm({ navigation, route }) {
   const { user } = useAuth();
   const { refreshSyncStatus } = useOffline();
   const { classes } = useClasses();
+
+  // Timer handoff from Today tab: when the EA stops the Session Timer, we navigate
+  // here with these params so the session record can carry the timed duration.
+  const { started_at: timerStartedAt, ended_at: timerEndedAt, duration_seconds: timerDurationSeconds } =
+    route?.params || {};
+  const hasTimerData = timerDurationSeconds != null;
 
   const [sessionDate, setSessionDate] = useState(new Date());
   const [dateMenuVisible, setDateMenuVisible] = useState(false);
@@ -281,6 +299,9 @@ export default function LiteracySessionForm({ navigation }) {
           comments: comments.trim() || null,
         },
         notes: comments.trim() || null,
+        started_at: timerStartedAt || null,
+        ended_at: timerEndedAt || null,
+        duration_seconds: timerDurationSeconds ?? null,
         synced: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -354,6 +375,23 @@ export default function LiteracySessionForm({ navigation }) {
   return (
     <View style={styles.outerContainer}>
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      {/* ── Timer banner (only if we arrived here from the Today tab timer) ── */}
+      {hasTimerData && (
+        <Card style={[styles.card, styles.timerBannerCard]}>
+          <Card.Content style={styles.timerBannerContent}>
+            <Ionicons name="timer-outline" size={20} color={colors.primary} />
+            <View style={styles.timerBannerText}>
+              <Text variant="bodyMedium" style={styles.timerBannerLabel}>
+                Session duration
+              </Text>
+              <Text variant="titleMedium" style={styles.timerBannerValue}>
+                {formatDuration(timerDurationSeconds)}
+              </Text>
+            </View>
+          </Card.Content>
+        </Card>
+      )}
+
       {/* ── Session Date ── */}
       <Card style={styles.card}>
         <Card.Content>
@@ -611,6 +649,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginBottom: spacing.md,
     ...shadows.card,
+  },
+  timerBannerCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  timerBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  timerBannerText: {
+    flex: 1,
+  },
+  timerBannerLabel: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  timerBannerValue: {
+    color: colors.text,
+    fontWeight: '600',
   },
   sectionLabel: {
     color: colors.primary,
