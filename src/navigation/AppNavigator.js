@@ -1,0 +1,336 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useAuth } from '../context/AuthContext';
+import { ActivityIndicator, View, TouchableOpacity, Pressable, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text } from 'react-native-paper';
+import { colors } from '../constants/colors';
+import SyncIndicator from '../components/common/SyncIndicator';
+
+// Auth screens
+import LoginScreen from '../screens/auth/LoginScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+
+// Main tab screens
+import HomeScreen from '../screens/main/HomeScreen';
+import TimeEntriesListScreen from '../screens/main/TimeEntriesListScreen';
+import ChildrenListScreen from '../screens/main/ChildrenListScreen';
+import SessionsScreen from '../screens/main/SessionsScreen';
+import AssessmentsScreen from '../screens/main/AssessmentsScreen';
+import ProfileScreen from '../screens/main/ProfileScreen';
+
+// Children screens
+import AddChildScreen from '../screens/children/AddChildScreen';
+import EditChildScreen from '../screens/children/EditChildScreen';
+import CreateClassScreen from '../screens/children/CreateClassScreen';
+import EditClassScreen from '../screens/children/EditClassScreen';
+import ClassDetailScreen from '../screens/children/ClassDetailScreen';
+
+// Session screens
+import SessionFormScreen from '../screens/sessions/SessionFormScreen';
+import SessionHistoryScreen from '../screens/sessions/SessionHistoryScreen';
+
+// Assessment screens
+import AssessmentChildSelectScreen from '../screens/assessments/AssessmentChildSelectScreen';
+import LetterAssessmentScreen from '../screens/assessments/LetterAssessmentScreen';
+import AssessmentResultsScreen from '../screens/assessments/AssessmentResultsScreen';
+import AssessmentHistoryScreen from '../screens/assessments/AssessmentHistoryScreen';
+import AssessmentDetailScreen from '../screens/assessments/AssessmentDetailScreen';
+import LetterTrackerScreen from '../screens/assessments/LetterTrackerScreen';
+import ChildAssessmentSummaryScreen from '../screens/assessments/ChildAssessmentSummaryScreen';
+
+// Insight screens
+import LetterMasteryRankingScreen from '../screens/insights/LetterMasteryRankingScreen';
+import AssessmentRankingScreen from '../screens/insights/AssessmentRankingScreen';
+import SessionCountRankingScreen from '../screens/insights/SessionCountRankingScreen';
+
+// Sync screen
+import SyncStatusScreen from '../screens/main/SyncStatusScreen';
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function AuthNavigator() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{
+          headerShown: true,
+          title: 'Reset Password',
+          headerBackTitle: 'Back',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function MainTabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route, navigation }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Children') {
+            iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Sessions') {
+            iconName = focused ? 'document-text' : 'document-text-outline';
+          } else if (route.name === 'Assessments') {
+            iconName = focused ? 'clipboard' : 'clipboard-outline';
+          }
+
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        headerRight: () => (
+          <View style={{ marginRight: 16 }}>
+            <SyncIndicator onPress={() => navigation.navigate('SyncStatus')} />
+          </View>
+        ),
+        tabBarActiveTintColor: colors.tabActive,      // Brand blue
+        tabBarInactiveTintColor: colors.tabInactive,  // Gray
+        tabBarStyle: {
+          backgroundColor: colors.surface,            // White background
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+        },
+      })}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={({ navigation }) => ({
+          title: 'Home',
+          headerRight: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16, gap: 8 }}>
+              <SyncIndicator onPress={() => navigation.navigate('SyncStatus')} />
+              <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+                <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          ),
+        })}
+      />
+      <Tab.Screen
+        name="Children"
+        component={ChildrenListScreen}
+        options={{ title: 'My Children' }}
+      />
+      <Tab.Screen
+        name="Sessions"
+        component={SessionsScreen}
+        options={{ title: 'Sessions' }}
+      />
+      <Tab.Screen
+        name="Assessments"
+        component={AssessmentsScreen}
+        options={{ title: 'Assessments' }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+function MainNavigator() {
+  return (
+    <Stack.Navigator
+      screenOptions={({ navigation }) => ({
+        headerLeft: navigation.canGoBack()
+          ? () => (
+            <Pressable
+              onPress={() => navigation.goBack()}
+              hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
+            >
+              <Ionicons name="chevron-back" size={28} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 17 }}>Back</Text>
+            </Pressable>
+          )
+          : undefined,
+      })}
+    >
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: 'My Profile',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="TimeEntriesList"
+        component={TimeEntriesListScreen}
+        options={{
+          title: 'Work History',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="CreateClass"
+        component={CreateClassScreen}
+        options={{
+          title: 'Create Class',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="EditClass"
+        component={EditClassScreen}
+        options={{
+          title: 'Edit Class',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="ClassDetail"
+        component={ClassDetailScreen}
+        options={{
+          title: 'Class Details',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AddChild"
+        component={AddChildScreen}
+        options={{
+          title: 'Add Child',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="EditChild"
+        component={EditChildScreen}
+        options={{
+          title: 'Edit Child',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="SessionForm"
+        component={SessionFormScreen}
+        options={{
+          title: 'New Session',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="SessionHistory"
+        component={SessionHistoryScreen}
+        options={{
+          title: 'Session History',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AssessmentChildSelect"
+        component={AssessmentChildSelectScreen}
+        options={{
+          title: 'Select Child',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="LetterAssessment"
+        component={LetterAssessmentScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AssessmentResults"
+        component={AssessmentResultsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="AssessmentHistory"
+        component={AssessmentHistoryScreen}
+        options={{
+          title: 'Assessment History',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="LetterTracker"
+        component={LetterTrackerScreen}
+        options={{
+          title: 'Letter Tracker',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="ChildAssessmentSummary"
+        component={ChildAssessmentSummaryScreen}
+        options={{
+          title: 'Assessment Summary',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AssessmentDetail"
+        component={AssessmentDetailScreen}
+        options={{
+          title: 'Assessment Detail',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="LetterMasteryRanking"
+        component={LetterMasteryRankingScreen}
+        options={{
+          title: 'Letter Mastery',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AssessmentRanking"
+        component={AssessmentRankingScreen}
+        options={{
+          title: 'Assessment Scores',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="SessionCountRanking"
+        component={SessionCountRankingScreen}
+        options={{
+          title: 'Session Count',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="SyncStatus"
+        component={SyncStatusScreen}
+        options={{
+          title: 'Sync Status',
+          headerBackTitle: 'Back',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      {user ? <MainNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
+  );
+}
