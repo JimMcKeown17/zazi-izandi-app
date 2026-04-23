@@ -7,6 +7,7 @@ import {
   Card,
   Banner,
   List,
+  IconButton,
 } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing } from '../../constants/colors';
@@ -138,6 +139,14 @@ export default function ChildrenListScreen({ navigation }) {
                 title={`${child.first_name} ${child.last_name}`}
                 description={`${child.age ? `Age ${child.age}` : ''}${child.age && child.gender ? ' • ' : ''}${child.gender || ''}`}
                 left={props => <List.Icon {...props} icon="account-alert-outline" color={colors.textSecondary} />}
+                right={() => (
+                  <IconButton
+                    icon="alpha-a-box-outline"
+                    size={28}
+                    iconColor={colors.primary}
+                    onPress={() => navigation.navigate('LetterTracker', { child, classItem: null })}
+                  />
+                )}
                 onPress={() => navigation.navigate('EditChild', { childId: child.id })}
                 style={styles.unassignedItem}
               />
