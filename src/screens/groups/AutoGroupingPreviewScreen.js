@@ -45,6 +45,9 @@ export default function AutoGroupingPreviewScreen({ route, navigation }) {
     groups: allGroups,
     childrenGroups,
     getChildrenInGroup,
+    addGroup,
+    addChildToGroup,
+    removeChildFromGroup,
   } = useChildren();
 
   const classItem = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
@@ -53,6 +56,7 @@ export default function AutoGroupingPreviewScreen({ route, navigation }) {
   const [assessments, setAssessments] = useState(null);
   const [preview, setPreview] = useState(null);
   const [pickerState, setPickerState] = useState({ visible: false, childId: null });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,11 +198,110 @@ export default function AutoGroupingPreviewScreen({ route, navigation }) {
     });
   };
 
-  const handleAccept = () => {
-    Alert.alert(
-      'Coming Soon',
-      'Persistence is landing in the next commit. The preview state is ready.',
-    );
+  const handleAccept = async () => {
+    if (!preview || preview.groups.length === 0 || saving) return;
+    setSaving(true);
+
+    try {
+      const classChildIds = new Set(childrenInClass.map(c => c.id));
+
+      // Local working copy of memberships, kept in sync with each DB call so
+      // subsequent iterations see the right state (the React `childrenGroups`
+      // closure is stale within the awaits).
+      let workingMemberships = [...childrenGroups];
+
+      const removeMembership = async (childId, groupId) => {
+        await removeChildFromGroup(childId, groupId);
+        workingMemberships = workingMemberships.filter(
+          cg => !(cg.child_id === childId && cg.group_id === groupId),
+        );
+      };
+
+      const addMembership = async (childId, groupId) => {
+        if (workingMemberships.some(cg => cg.child_id === childId && cg.group_id === groupId)) return;
+        const result = await addChildToGroup(childId, groupId);
+        if (!result.success) throw new Error(`Failed to add child to group: ${result.error || 'unknown'}`);
+        if (result.membership) workingMemberships.push(result.membership);
+      };
+
+      // For redo: clear all class memberships first so re-bucketing starts clean.
+      if (mode === 'redo') {
+        const toClear = workingMemberships.filter(cg => classChildIds.has(cg.child_id));
+        for (const cg of toClear) {
+          await removeMembership(cg.child_id, cg.group_id);
+        }
+      }
+
+      // Resolve each preview group to a concrete groupId (existing or newly created),
+      // handling name collisions by appending a class-name suffix.
+      const namesInUse = new Set(allGroups.map(g => g.name));
+      const existingByName = new Map(allGroups.map(g => [g.name, g]));
+      const resolvedGroupIds = new Map();
+
+      for (const pg of preview.groups) {
+        let groupId = pg.isExisting && pg.id ? pg.id : null;
+
+        if (!groupId) {
+          const reusable = existingByName.get(pg.name);
+          if (reusable) {
+            groupId = reusable.id;
+          } else {
+            let effectiveName = pg.name;
+            if (namesInUse.has(effectiveName)) {
+              effectiveName = `${pg.name} – ${classItem.name}`;
+              let n = 2;
+              while (namesInUse.has(effectiveName)) {
+                effectiveName = `${pg.name} – ${classItem.name} (${n})`;
+                n++;
+              }
+            }
+            const result = await addGroup({ name: effectiveName });
+            if (!result.success || !result.group) {
+              throw new Error(`Failed to create group ${effectiveName}: ${result.error || 'unknown'}`);
+            }
+            groupId = result.group.id;
+            namesInUse.add(effectiveName);
+            existingByName.set(effectiveName, result.group);
+          }
+        }
+
+        resolvedGroupIds.set(pg.name, groupId);
+      }
+
+      // Sync each child's membership to match the preview state.
+      for (const pg of preview.groups) {
+        const groupId = resolvedGroupIds.get(pg.name);
+        for (const child of pg.children) {
+          const currentClassMemberships = workingMemberships.filter(
+            cg => cg.child_id === child.id && classChildIds.has(cg.child_id),
+          );
+
+          if (currentClassMemberships.some(cg => cg.group_id === groupId)) continue;
+
+          // Enforce one-group-per-user: remove from any other class group first.
+          for (const cm of currentClassMemberships) {
+            if (cm.group_id !== groupId) {
+              await removeMembership(child.id, cm.group_id);
+            }
+          }
+
+          await addMembership(child.id, groupId);
+        }
+      }
+
+      Alert.alert(
+        'Groups saved',
+        mode === 'insert'
+          ? 'New children have been added to groups and will sync in the background.'
+          : 'The new groupings are saved and will sync in the background.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
+    } catch (err) {
+      console.error('Failed to persist groups:', err);
+      Alert.alert('Save failed', err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -367,16 +470,17 @@ export default function AutoGroupingPreviewScreen({ route, navigation }) {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button mode="outlined" onPress={handleCancel} style={styles.footerBtn}>
+        <Button mode="outlined" onPress={handleCancel} style={styles.footerBtn} disabled={saving}>
           Cancel
         </Button>
         <Button
           mode="contained"
           onPress={handleAccept}
           style={styles.footerBtn}
-          disabled={preview.groups.length === 0}
+          disabled={preview.groups.length === 0 || saving}
+          loading={saving}
         >
-          Accept
+          {saving ? 'Saving…' : 'Accept'}
         </Button>
       </View>
 
