@@ -30,7 +30,9 @@
       "package": "org.masinyusane.zz",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
@@ -45,8 +47,11 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "supabaseUrl": "REPLACE_WITH_ZZ_SUPABASE_URL",
-      "supabaseAnonKey": "REPLACE_WITH_ZZ_SUPABASE_ANON_KEY"
+      "supabaseUrl": "https://qpgvfyxnamrawolclzfn.supabase.co",
+      "supabaseAnonKey": "sb_publishable_GTzgHbdPGaxA0lgzQsuMeA_jrp59-hO",
+      "eas": {
+        "projectId": "d264d2ae-981f-4d72-b073-5bc3be3f23e3"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"

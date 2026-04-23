@@ -11,6 +11,15 @@
 --     app versions in the wild)
 -- All EA-owned tables FK to auth.users(id) directly (not to an intermediate profile
 -- table), per the canonical identity contract. staff_identity_links is supplementary.
+--
+-- Security + performance hardening (applied before first deploy):
+--   - Every function has SET search_path = public, pg_temp in its attribute clause
+--     (closes function_search_path_mutable advisor; critical for the three
+--     SECURITY DEFINER functions).
+--   - RLS policies reference (select auth.uid()) instead of auth.uid() so the
+--     planner evaluates the current user once per query, not once per row
+--     (closes auth_rls_initplan advisor).
+--   - classes.school_id has a covering index (closes unindexed_foreign_keys advisor).
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -39,11 +48,11 @@ ALTER TABLE staff_identity_links ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own profile"
   ON staff_identity_links FOR SELECT
-  USING (user_id = auth.uid());
+  USING (user_id = (select auth.uid()));
 
 CREATE POLICY "Users can update own profile"
   ON staff_identity_links FOR UPDATE
-  USING (user_id = auth.uid());
+  USING (user_id = (select auth.uid()));
 
 -- Auto-create a staff_identity_links row when a new auth user signs in.
 -- This means mobile client never has to insert into this table — the
@@ -61,7 +70,7 @@ BEGIN
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -106,24 +115,26 @@ CREATE TABLE classes (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(staff_id, name, school_id)
 );
+CREATE INDEX idx_classes_school_id ON classes(school_id);
+CREATE INDEX idx_classes_staff_id ON classes(staff_id);
 
 ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
 
 -- Dual SELECT policies: staff_id for steady-state, created_by for upsert visibility
 CREATE POLICY "Users can view own classes"
-  ON classes FOR SELECT TO authenticated USING (staff_id = auth.uid());
+  ON classes FOR SELECT TO authenticated USING (staff_id = (select auth.uid()));
 
 CREATE POLICY "Users can view own created classes"
-  ON classes FOR SELECT TO authenticated USING (created_by = auth.uid());
+  ON classes FOR SELECT TO authenticated USING (created_by = (select auth.uid()));
 
 CREATE POLICY "Users can insert own classes"
-  ON classes FOR INSERT TO authenticated WITH CHECK (created_by = auth.uid());
+  ON classes FOR INSERT TO authenticated WITH CHECK (created_by = (select auth.uid()));
 
 CREATE POLICY "Users can update own classes"
-  ON classes FOR UPDATE TO authenticated USING (staff_id = auth.uid());
+  ON classes FOR UPDATE TO authenticated USING (staff_id = (select auth.uid()));
 
 CREATE POLICY "Users can delete own classes"
-  ON classes FOR DELETE TO authenticated USING (staff_id = auth.uid());
+  ON classes FOR DELETE TO authenticated USING (staff_id = (select auth.uid()));
 
 CREATE OR REPLACE FUNCTION set_class_created_by()
 RETURNS TRIGGER AS $$
@@ -131,7 +142,7 @@ BEGIN
   NEW.created_by := auth.uid();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 CREATE TRIGGER classes_set_created_by
   BEFORE INSERT ON classes
@@ -143,7 +154,7 @@ BEGIN
   NEW.updated_at := NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER classes_update_timestamp
   BEFORE UPDATE ON classes
@@ -179,7 +190,7 @@ BEGIN
   NEW.created_by = auth.uid();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER children_set_created_by
   BEFORE INSERT ON children
@@ -191,7 +202,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER children_updated_at_trigger
   BEFORE UPDATE ON children
@@ -215,11 +226,11 @@ CREATE INDEX idx_staff_children_child_id ON staff_children(child_id);
 ALTER TABLE staff_children ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own assignments" ON staff_children
-  FOR SELECT USING (staff_id = auth.uid());
+  FOR SELECT USING (staff_id = (select auth.uid()));
 CREATE POLICY "Users can create assignments" ON staff_children
-  FOR INSERT WITH CHECK (staff_id = auth.uid());
+  FOR INSERT WITH CHECK (staff_id = (select auth.uid()));
 CREATE POLICY "Users can delete own assignments" ON staff_children
-  FOR DELETE USING (staff_id = auth.uid());
+  FOR DELETE USING (staff_id = (select auth.uid()));
 
 -- Dual SELECT policy on children: steady-state via junction + upsert visibility via created_by
 CREATE POLICY "Users can view assigned children" ON children
@@ -227,22 +238,22 @@ CREATE POLICY "Users can view assigned children" ON children
     EXISTS (
       SELECT 1 FROM staff_children
       WHERE staff_children.child_id = children.id
-      AND staff_children.staff_id = auth.uid()
+      AND staff_children.staff_id = (select auth.uid())
     )
   );
 
 CREATE POLICY "Users can view own created children" ON children
-  FOR SELECT USING (created_by = auth.uid());
+  FOR SELECT USING (created_by = (select auth.uid()));
 
 CREATE POLICY "Users can insert children" ON children
-  FOR INSERT WITH CHECK (created_by = auth.uid());
+  FOR INSERT WITH CHECK (created_by = (select auth.uid()));
 
 CREATE POLICY "Users can update assigned children" ON children
   FOR UPDATE USING (
     EXISTS (
       SELECT 1 FROM staff_children
       WHERE staff_children.child_id = children.id
-      AND staff_children.staff_id = auth.uid()
+      AND staff_children.staff_id = (select auth.uid())
     )
   );
 
@@ -251,7 +262,7 @@ CREATE POLICY "Users can delete assigned children" ON children
     EXISTS (
       SELECT 1 FROM staff_children
       WHERE staff_children.child_id = children.id
-      AND staff_children.staff_id = auth.uid()
+      AND staff_children.staff_id = (select auth.uid())
     )
   );
 
@@ -272,13 +283,13 @@ CREATE INDEX idx_groups_staff_id ON groups(staff_id);
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own groups" ON groups
-  FOR SELECT USING (staff_id = auth.uid());
+  FOR SELECT USING (staff_id = (select auth.uid()));
 CREATE POLICY "Users can insert own groups" ON groups
-  FOR INSERT WITH CHECK (staff_id = auth.uid());
+  FOR INSERT WITH CHECK (staff_id = (select auth.uid()));
 CREATE POLICY "Users can update own groups" ON groups
-  FOR UPDATE USING (staff_id = auth.uid());
+  FOR UPDATE USING (staff_id = (select auth.uid()));
 CREATE POLICY "Users can delete own groups" ON groups
-  FOR DELETE USING (staff_id = auth.uid());
+  FOR DELETE USING (staff_id = (select auth.uid()));
 
 CREATE OR REPLACE FUNCTION update_groups_updated_at()
 RETURNS TRIGGER AS $$
@@ -286,7 +297,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER groups_updated_at_trigger
   BEFORE UPDATE ON groups
@@ -309,7 +320,7 @@ CREATE POLICY "Users can view own group assignments" ON children_groups
     EXISTS (
       SELECT 1 FROM groups
       WHERE groups.id = children_groups.group_id
-      AND groups.staff_id = auth.uid()
+      AND groups.staff_id = (select auth.uid())
     )
   );
 
@@ -318,7 +329,7 @@ CREATE POLICY "Users can insert own group assignments" ON children_groups
     EXISTS (
       SELECT 1 FROM groups
       WHERE groups.id = children_groups.group_id
-      AND groups.staff_id = auth.uid()
+      AND groups.staff_id = (select auth.uid())
     )
   );
 
@@ -327,7 +338,7 @@ CREATE POLICY "Users can delete own group assignments" ON children_groups
     EXISTS (
       SELECT 1 FROM groups
       WHERE groups.id = children_groups.group_id
-      AND groups.staff_id = auth.uid()
+      AND groups.staff_id = (select auth.uid())
     )
   );
 
@@ -347,7 +358,7 @@ BEGIN
   INNER JOIN children_groups cg ON c.id = cg.child_id
   WHERE cg.group_id = group_uuid;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- ============================================================
 -- 7. time_entries  (clock-in/clock-out with GPS)
@@ -371,11 +382,11 @@ CREATE INDEX idx_time_entries_synced ON time_entries(synced);
 ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own time entries" ON time_entries
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = (select auth.uid()));
 CREATE POLICY "Users can insert own time entries" ON time_entries
-  FOR INSERT WITH CHECK (user_id = auth.uid());
+  FOR INSERT WITH CHECK (user_id = (select auth.uid()));
 CREATE POLICY "Users can update own time entries" ON time_entries
-  FOR UPDATE USING (user_id = auth.uid());
+  FOR UPDATE USING (user_id = (select auth.uid()));
 
 -- ============================================================
 -- 8. sessions  (with ZZ session timer fields)
@@ -408,11 +419,11 @@ CREATE INDEX idx_sessions_group_ids ON sessions USING GIN(group_ids);
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own sessions" ON sessions
-  FOR SELECT USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = (select auth.uid()));
 CREATE POLICY "Users can insert own sessions" ON sessions
-  FOR INSERT WITH CHECK (user_id = auth.uid());
+  FOR INSERT WITH CHECK (user_id = (select auth.uid()));
 CREATE POLICY "Users can update own sessions" ON sessions
-  FOR UPDATE USING (user_id = auth.uid());
+  FOR UPDATE USING (user_id = (select auth.uid()));
 
 CREATE OR REPLACE FUNCTION update_sessions_updated_at()
 RETURNS TRIGGER AS $$
@@ -420,7 +431,7 @@ BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER sessions_updated_at_trigger
   BEFORE UPDATE ON sessions
@@ -460,9 +471,9 @@ CREATE INDEX idx_assessments_child_id ON assessments(child_id);
 CREATE INDEX idx_assessments_synced ON assessments(synced);
 
 ALTER TABLE assessments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY select_own ON assessments FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY insert_own ON assessments FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY update_own ON assessments FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY select_own ON assessments FOR SELECT USING (user_id = (select auth.uid()));
+CREATE POLICY insert_own ON assessments FOR INSERT WITH CHECK (user_id = (select auth.uid()));
+CREATE POLICY update_own ON assessments FOR UPDATE USING (user_id = (select auth.uid()));
 
 -- ============================================================
 -- 10. letter_mastery  (coach-taught letter mastery; assessment mastery is derived on the fly)
@@ -484,10 +495,10 @@ CREATE INDEX idx_letter_mastery_child ON letter_mastery(child_id);
 CREATE INDEX idx_letter_mastery_user ON letter_mastery(user_id);
 
 ALTER TABLE letter_mastery ENABLE ROW LEVEL SECURITY;
-CREATE POLICY select_own ON letter_mastery FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY insert_own ON letter_mastery FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY update_own ON letter_mastery FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY delete_own ON letter_mastery FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY select_own ON letter_mastery FOR SELECT USING (user_id = (select auth.uid()));
+CREATE POLICY insert_own ON letter_mastery FOR INSERT WITH CHECK (user_id = (select auth.uid()));
+CREATE POLICY update_own ON letter_mastery FOR UPDATE USING (user_id = (select auth.uid()));
+CREATE POLICY delete_own ON letter_mastery FOR DELETE USING (user_id = (select auth.uid()));
 
 -- ============================================================
 -- Migration Complete
