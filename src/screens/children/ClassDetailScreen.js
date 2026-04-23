@@ -1,15 +1,19 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import {
   Text,
   Card,
   FAB,
   List,
   IconButton,
+  Button,
 } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, borderRadius } from '../../constants/colors';
 import { useClasses } from '../../context/ClassesContext';
 import { useChildren } from '../../context/ChildrenContext';
+import { storage } from '../../utils/storage';
+import { MIN_GROUP_SIZE } from '../../utils/autoGrouping';
 import GroupPickerBottomSheet, { getGroupColor } from '../../components/children/GroupPickerBottomSheet';
 
 export default function ClassDetailScreen({ route, navigation }) {
@@ -30,6 +34,82 @@ export default function ClassDetailScreen({ route, navigation }) {
   const handleGroupChanged = useCallback(() => {
     setRefreshKey(k => k + 1);
   }, []);
+
+  // Assessed child IDs in this class — refreshed each time the screen gains focus
+  // so returning from an assessment surfaces the updated auto-grouping CTA.
+  const [assessedIdsInClass, setAssessedIdsInClass] = useState(new Set());
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const assessments = await storage.getAssessments();
+        const classChildIds = new Set(childrenInClass.map(c => c.id));
+        const ids = new Set(
+          assessments
+            .filter(a => a.assessment_type === 'letter_egra' || !a.assessment_type)
+            .filter(a => classChildIds.has(a.child_id))
+            .map(a => a.child_id),
+        );
+        if (!cancelled) setAssessedIdsInClass(ids);
+      })();
+      return () => { cancelled = true; };
+    }, [childrenInClass]),
+  );
+
+  const autoGroupingCTA = useMemo(() => {
+    if (!classItem || childrenInClass.length === 0) return null;
+
+    const classChildIds = new Set(childrenInClass.map(c => c.id));
+    const classGroupIds = new Set(
+      childrenGroups.filter(cg => classChildIds.has(cg.child_id)).map(cg => cg.group_id),
+    );
+    const existingClassGroupCount = groups.filter(g => classGroupIds.has(g.id)).length;
+
+    const groupedChildIds = new Set(
+      childrenGroups.filter(cg => classGroupIds.has(cg.group_id)).map(cg => cg.child_id),
+    );
+    const ungroupedAssessed = [...assessedIdsInClass].filter(id => !groupedChildIds.has(id)).length;
+    const assessedCount = assessedIdsInClass.size;
+
+    if (existingClassGroupCount === 0) {
+      if (assessedCount < MIN_GROUP_SIZE) return null;
+      return {
+        label: 'Suggest groups',
+        mode: 'full',
+        showRedo: false,
+      };
+    }
+
+    if (ungroupedAssessed > 0) {
+      return {
+        label: `Add ${ungroupedAssessed} ${ungroupedAssessed === 1 ? 'child' : 'children'} to groups`,
+        mode: 'insert',
+        showRedo: true,
+      };
+    }
+
+    // Groups exist, no ungrouped assessed kids — only offer destructive redo
+    return {
+      label: null,
+      mode: null,
+      showRedo: true,
+    };
+  }, [classItem, childrenInClass, childrenGroups, groups, assessedIdsInClass]);
+
+  const handleAutoGroupPress = (mode) => {
+    navigation.navigate('AutoGroupingPreview', { classId, mode });
+  };
+
+  const handleRedoPress = () => {
+    Alert.alert(
+      'Redo all groups?',
+      'This discards current groups for this class and re-buckets every assessed child from scratch. Typical for start-of-term regroupings; not common mid-term.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Redo groups', style: 'destructive', onPress: () => handleAutoGroupPress('redo') },
+      ],
+    );
+  };
 
   /**
    * Get the current group for a child (for this user's groups only).
@@ -172,6 +252,27 @@ export default function ClassDetailScreen({ route, navigation }) {
         </Card.Content>
       </Card>
 
+      {/* Auto-grouping CTA */}
+      {autoGroupingCTA && (autoGroupingCTA.label || autoGroupingCTA.showRedo) && (
+        <View style={styles.autoGroupContainer}>
+          {autoGroupingCTA.label && (
+            <Button
+              mode="contained"
+              icon="account-group"
+              onPress={() => handleAutoGroupPress(autoGroupingCTA.mode)}
+              style={styles.autoGroupBtn}
+            >
+              {autoGroupingCTA.label}
+            </Button>
+          )}
+          {autoGroupingCTA.showRedo && (
+            <TouchableOpacity onPress={handleRedoPress} style={styles.redoLink}>
+              <Text style={styles.redoLinkText}>Redo all groups</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {/* Children list */}
       <Text variant="titleMedium" style={styles.sectionTitle}>
         Children ({childrenInClass.length})
@@ -245,6 +346,22 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
+  },
+  autoGroupContainer: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  autoGroupBtn: {
+    alignSelf: 'stretch',
+  },
+  redoLink: {
+    paddingVertical: spacing.sm,
+  },
+  redoLinkText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   childCard: {
     flexDirection: 'row',

@@ -49,6 +49,9 @@ import SessionCountRankingScreen from '../screens/insights/SessionCountRankingSc
 // Sync screen
 import SyncStatusScreen from '../screens/main/SyncStatusScreen';
 
+// Group screens
+import AutoGroupingPreviewScreen from '../screens/groups/AutoGroupingPreviewScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -310,6 +313,14 @@ function MainNavigator() {
         component={SyncStatusScreen}
         options={{
           title: 'Sync Status',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="AutoGroupingPreview"
+        component={AutoGroupingPreviewScreen}
+        options={{
+          title: 'Group preview',
           headerBackTitle: 'Back',
         }}
       />
