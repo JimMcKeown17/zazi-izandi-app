@@ -266,9 +266,18 @@ export default function ClassDetailScreen({ route, navigation }) {
             </Button>
           )}
           {autoGroupingCTA.showRedo && (
-            <TouchableOpacity onPress={handleRedoPress} style={styles.redoLink}>
-              <Text style={styles.redoLinkText}>Redo all groups</Text>
-            </TouchableOpacity>
+            <View style={styles.autoGroupSecondaryRow}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Groups', { classId })}
+                style={styles.secondaryLink}
+              >
+                <Text style={styles.secondaryLinkText}>View groups</Text>
+              </TouchableOpacity>
+              <Text style={styles.secondarySeparator}>·</Text>
+              <TouchableOpacity onPress={handleRedoPress} style={styles.secondaryLink}>
+                <Text style={styles.secondaryLinkText}>Redo all groups</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       )}
@@ -362,6 +371,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     textDecorationLine: 'underline',
+  },
+  autoGroupSecondaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  secondaryLink: {
+    paddingHorizontal: spacing.xs,
+  },
+  secondaryLinkText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  secondarySeparator: {
+    color: colors.textSecondary,
+    paddingHorizontal: spacing.xs,
   },
   childCard: {
     flexDirection: 'row',

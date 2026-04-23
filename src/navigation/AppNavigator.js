@@ -51,6 +51,7 @@ import SyncStatusScreen from '../screens/main/SyncStatusScreen';
 
 // Group screens
 import AutoGroupingPreviewScreen from '../screens/groups/AutoGroupingPreviewScreen';
+import GroupsScreen from '../screens/groups/GroupsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -321,6 +322,14 @@ function MainNavigator() {
         component={AutoGroupingPreviewScreen}
         options={{
           title: 'Group preview',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="Groups"
+        component={GroupsScreen}
+        options={{
+          title: 'Groups',
           headerBackTitle: 'Back',
         }}
       />

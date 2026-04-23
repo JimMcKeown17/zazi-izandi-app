@@ -211,6 +211,16 @@ export default function ChildrenListScreen({ navigation }) {
             { label: 'Classes', value: tabStats.classCount },
             { label: 'Unassessed', value: tabStats.unassessedCount, color: tabStats.unassessedCount > 0 ? colors.emphasis : colors.primary, onPress: tabStats.unassessedCount > 0 ? () => navigation.navigate('MainTabs', { screen: 'Assessments' }) : undefined },
           ]} />
+          {groups.length > 0 && (
+            <TouchableOpacity
+              style={styles.groupsLink}
+              onPress={() => navigation.navigate('Groups')}
+            >
+              <Text style={styles.groupsLinkText}>
+                View my groups ({groups.length}) →
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -265,6 +275,15 @@ const styles = StyleSheet.create({
   statBarWrapper: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+  },
+  groupsLink: {
+    paddingTop: spacing.sm,
+    alignSelf: 'center',
+  },
+  groupsLinkText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   searchBar: {
     margin: spacing.md,
