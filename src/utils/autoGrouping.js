@@ -162,3 +162,47 @@ export function assignGroups(children, options = {}) {
 
   return assignTrackGroups(children, 'Letters', 'letters_total_correct', trackOptions);
 }
+
+/**
+ * Project raw children + assessments into the shape assignGroups expects.
+ * Picks the latest assessment per child (by created_at), drops children
+ * without any assessment, and maps correct_responses → letters_total_correct
+ * (and future words EGRA → words_total_correct).
+ *
+ * @param {Array} children
+ * @param {Array} assessments
+ * @param {Object} [options]
+ * @param {string} [options.classId] - if provided, only children in this class
+ * @returns {Array} - ready to feed into assignGroups()
+ */
+export function projectAssessedChildrenForGrouping(children, assessments, { classId } = {}) {
+  if (!children || children.length === 0) return [];
+
+  const scoped = classId ? children.filter(c => c.class_id === classId) : children;
+
+  const latestLetterByChild = new Map();
+  const latestWordsByChild = new Map();
+  for (const a of assessments || []) {
+    const type = a.assessment_type || 'letter_egra';
+    const target = type === 'words_egra' ? latestWordsByChild : latestLetterByChild;
+    const existing = target.get(a.child_id);
+    if (!existing || (a.created_at ?? '') > (existing.created_at ?? '')) {
+      target.set(a.child_id, a);
+    }
+  }
+
+  const projected = [];
+  for (const child of scoped) {
+    const letter = latestLetterByChild.get(child.id);
+    if (!letter) continue;
+    const words = latestWordsByChild.get(child.id);
+    projected.push({
+      id: child.id,
+      first_name: child.first_name,
+      last_name: child.last_name,
+      letters_total_correct: letter.correct_responses ?? 0,
+      words_total_correct: words ? (words.correct_responses ?? 0) : undefined,
+    });
+  }
+  return projected;
+}

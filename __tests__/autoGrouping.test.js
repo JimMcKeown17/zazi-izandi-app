@@ -1,6 +1,7 @@
 import {
   assignGroups,
   groupSizeStatus,
+  projectAssessedChildrenForGrouping,
   BLENDING_THRESHOLD,
 } from '../src/utils/autoGrouping';
 
@@ -152,5 +153,71 @@ describe('assignGroups — determinism', () => {
     const first = assignGroups(children);
     const second = assignGroups(children);
     expect(first).toEqual(second);
+  });
+});
+
+describe('projectAssessedChildrenForGrouping', () => {
+  const childA = { id: 'a', first_name: 'Alice', last_name: 'Adams', class_id: 'k1' };
+  const childB = { id: 'b', first_name: 'Bob', last_name: 'Brown', class_id: 'k1' };
+  const childC = { id: 'c', first_name: 'Cara', last_name: 'Chen', class_id: 'k2' };
+
+  test('returns empty when no children', () => {
+    expect(projectAssessedChildrenForGrouping([], [])).toEqual([]);
+    expect(projectAssessedChildrenForGrouping(null, [])).toEqual([]);
+  });
+
+  test('drops children with no assessment', () => {
+    const result = projectAssessedChildrenForGrouping(
+      [childA, childB],
+      [{ child_id: 'a', assessment_type: 'letter_egra', correct_responses: 10, created_at: '2026-04-20T10:00:00Z' }],
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('a');
+    expect(result[0].letters_total_correct).toBe(10);
+  });
+
+  test('picks latest assessment per child by created_at', () => {
+    const result = projectAssessedChildrenForGrouping(
+      [childA],
+      [
+        { child_id: 'a', assessment_type: 'letter_egra', correct_responses: 5, created_at: '2026-04-20T10:00:00Z' },
+        { child_id: 'a', assessment_type: 'letter_egra', correct_responses: 12, created_at: '2026-04-22T10:00:00Z' },
+        { child_id: 'a', assessment_type: 'letter_egra', correct_responses: 8, created_at: '2026-04-21T10:00:00Z' },
+      ],
+    );
+    expect(result[0].letters_total_correct).toBe(12);
+  });
+
+  test('filters by classId when provided', () => {
+    const result = projectAssessedChildrenForGrouping(
+      [childA, childC],
+      [
+        { child_id: 'a', assessment_type: 'letter_egra', correct_responses: 10, created_at: '2026-04-20T10:00:00Z' },
+        { child_id: 'c', assessment_type: 'letter_egra', correct_responses: 20, created_at: '2026-04-20T10:00:00Z' },
+      ],
+      { classId: 'k1' },
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('a');
+  });
+
+  test('picks latest letter + latest words independently', () => {
+    const result = projectAssessedChildrenForGrouping(
+      [childA],
+      [
+        { child_id: 'a', assessment_type: 'letter_egra', correct_responses: 35, created_at: '2026-04-22T10:00:00Z' },
+        { child_id: 'a', assessment_type: 'words_egra', correct_responses: 6, created_at: '2026-04-22T11:00:00Z' },
+      ],
+    );
+    expect(result[0].letters_total_correct).toBe(35);
+    expect(result[0].words_total_correct).toBe(6);
+  });
+
+  test('words_total_correct undefined when no words assessment exists', () => {
+    const result = projectAssessedChildrenForGrouping(
+      [childA],
+      [{ child_id: 'a', assessment_type: 'letter_egra', correct_responses: 20, created_at: '2026-04-22T10:00:00Z' }],
+    );
+    expect(result[0].words_total_correct).toBeUndefined();
   });
 });
