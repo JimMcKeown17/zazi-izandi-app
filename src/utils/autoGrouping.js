@@ -163,6 +163,105 @@ export function assignGroups(children, options = {}) {
   return assignTrackGroups(children, 'Letters', 'letters_total_correct', trackOptions);
 }
 
+function computeMedian(values) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+function trackMetric(child, track) {
+  if (track === 'Blending') {
+    return child.words_total_correct ?? child.letters_total_correct ?? 0;
+  }
+  return child.letters_total_correct ?? 0;
+}
+
+/**
+ * Slot newly-assessed ungrouped children into existing groups by closest
+ * score match, without re-bucketing existing members. Used when groups
+ * already exist for a class and an EA assesses a handful of absentees.
+ *
+ * @param {Array} newChildren - projected shape, one per ungrouped child
+ * @param {Array} existingGroups - [{ id, name, type: 'Letters'|'Blending',
+ *   children: [{ letters_total_correct, words_total_correct? }] }]
+ * @param {Object} [options]
+ * @returns {{ placements: Array, updatedGroups: Array, unplaced: Array }}
+ *   - placements: [{ child, groupId, groupName, flags: [] }]
+ *   - updatedGroups: deep-cloned groups with new children pushed in
+ *   - unplaced: children that couldn't be placed (no existing groups exist)
+ */
+export function insertIntoExistingGroups(newChildren, existingGroups, options = {}) {
+  const children = newChildren || [];
+  const groups = existingGroups || [];
+
+  if (children.length === 0) {
+    return { placements: [], updatedGroups: groups.map(g => ({ ...g, children: [...(g.children || [])] })), unplaced: [] };
+  }
+
+  if (groups.length === 0) {
+    return { placements: [], updatedGroups: [], unplaced: [...children] };
+  }
+
+  const {
+    blendingThreshold = BLENDING_THRESHOLD,
+    maxGroupSize = MAX_GROUP_SIZE,
+    idealMaxGroupSize = IDEAL_MAX_GROUP_SIZE,
+  } = options;
+
+  const workingGroups = groups.map(g => ({
+    ...g,
+    children: [...(g.children || [])],
+  }));
+
+  const placements = [];
+
+  for (const child of children) {
+    const childScore = child.letters_total_correct ?? 0;
+    const preferredTrack = childScore > blendingThreshold ? 'Blending' : 'Letters';
+
+    const candidates = workingGroups.map(g => {
+      const scores = g.children.map(c => trackMetric(c, g.type));
+      return {
+        group: g,
+        trackMatch: g.type === preferredTrack,
+        distance: Math.abs(childScore - computeMedian(scores)),
+        size: g.children.length,
+      };
+    });
+
+    candidates.sort((a, b) => {
+      if (a.trackMatch !== b.trackMatch) return a.trackMatch ? -1 : 1;
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if (a.size !== b.size) return a.size - b.size;
+      return a.group.name.localeCompare(b.group.name);
+    });
+
+    let chosen = candidates.find(c => c.size < maxGroupSize);
+    const flags = [];
+
+    if (!chosen) {
+      chosen = candidates[0];
+      flags.push('no-capacity');
+    }
+
+    if (!chosen.trackMatch) flags.push('track-mismatch');
+    if (chosen.size + 1 > idealMaxGroupSize) flags.push('oversize');
+
+    chosen.group.children.push(child);
+    placements.push({
+      child,
+      groupId: chosen.group.id,
+      groupName: chosen.group.name,
+      flags,
+    });
+  }
+
+  return { placements, updatedGroups: workingGroups, unplaced: [] };
+}
+
 /**
  * Project raw children + assessments into the shape assignGroups expects.
  * Picks the latest assessment per child (by created_at), drops children

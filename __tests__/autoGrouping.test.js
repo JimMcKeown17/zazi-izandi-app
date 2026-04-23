@@ -2,6 +2,7 @@ import {
   assignGroups,
   groupSizeStatus,
   projectAssessedChildrenForGrouping,
+  insertIntoExistingGroups,
   BLENDING_THRESHOLD,
 } from '../src/utils/autoGrouping';
 
@@ -219,5 +220,148 @@ describe('projectAssessedChildrenForGrouping', () => {
       [{ child_id: 'a', assessment_type: 'letter_egra', correct_responses: 20, created_at: '2026-04-22T10:00:00Z' }],
     );
     expect(result[0].words_total_correct).toBeUndefined();
+  });
+});
+
+describe('insertIntoExistingGroups — edge cases', () => {
+  test('no new children → empty placements', () => {
+    const groups = [{ id: 'g1', name: 'L1', type: 'Letters', children: [{ letters_total_correct: 5 }] }];
+    const result = insertIntoExistingGroups([], groups);
+    expect(result.placements).toEqual([]);
+    expect(result.unplaced).toEqual([]);
+  });
+
+  test('no existing groups → all children unplaced (caller should use assignGroups)', () => {
+    const result = insertIntoExistingGroups([makeChild('a', 10)], []);
+    expect(result.placements).toEqual([]);
+    expect(result.unplaced).toHaveLength(1);
+    expect(result.unplaced[0].id).toBe('a');
+  });
+
+  test('null/undefined inputs handled safely', () => {
+    expect(insertIntoExistingGroups(null, null).placements).toEqual([]);
+    expect(insertIntoExistingGroups(null, null).unplaced).toEqual([]);
+  });
+});
+
+describe('insertIntoExistingGroups — closest-median placement', () => {
+  const makeGroup = (id, name, type, memberScores) => ({
+    id,
+    name,
+    type,
+    children: memberScores.map((s, i) => ({ id: `${name}-m${i}`, letters_total_correct: s })),
+  });
+
+  test('places new child in the group whose median is closest to their score', () => {
+    const groups = [
+      makeGroup('g1', 'L1', 'Letters', [2, 4, 6, 8, 10]),   // median 6
+      makeGroup('g2', 'L2', 'Letters', [12, 14, 16, 18, 20]), // median 16
+      makeGroup('g3', 'L3', 'Letters', [22, 24, 26, 28, 29]), // median 26
+    ];
+    const { placements } = insertIntoExistingGroups([makeChild('new', 15)], groups);
+    expect(placements).toHaveLength(1);
+    expect(placements[0].groupName).toBe('L2');
+    expect(placements[0].flags).toEqual([]);
+  });
+
+  test('prefers a track-matching group even when a cross-track group has closer median', () => {
+    // Letters group median=28 (very close to score 30 threshold), Blending median=15
+    // Child with score 35 is Blending-eligible — should go to Blending despite further median
+    const groups = [
+      makeGroup('g1', 'L1', 'Letters', [26, 28, 30]), // median 28
+      makeGroup('g2', 'B1', 'Blending', [35, 40, 45]), // median 40
+    ];
+    const { placements } = insertIntoExistingGroups([makeChild('new', 35)], groups);
+    expect(placements[0].groupName).toBe('B1');
+    expect(placements[0].flags).not.toContain('track-mismatch');
+  });
+
+  test('falls back across tracks when preferred track full, flags track-mismatch', () => {
+    // Blending group at MAX (9 members), Letters group has space
+    const full = Array.from({ length: 9 }, (_, i) => ({ id: `b${i}`, letters_total_correct: 40 }));
+    const groups = [
+      { id: 'g1', name: 'L1', type: 'Letters', children: [{ letters_total_correct: 10 }] },
+      { id: 'g2', name: 'B1', type: 'Blending', children: full },
+    ];
+    const { placements } = insertIntoExistingGroups([makeChild('new', 35)], groups); // Blending-eligible
+    expect(placements[0].groupName).toBe('L1');
+    expect(placements[0].flags).toContain('track-mismatch');
+  });
+
+  test('falls back when only cross-track groups exist', () => {
+    const groups = [{ id: 'g1', name: 'L1', type: 'Letters', children: [{ letters_total_correct: 10 }] }];
+    const { placements } = insertIntoExistingGroups([makeChild('new', 35)], groups);
+    expect(placements[0].groupName).toBe('L1');
+    expect(placements[0].flags).toContain('track-mismatch');
+  });
+});
+
+describe('insertIntoExistingGroups — size flags', () => {
+  const makeGroup = (id, name, type, count, score = 10) => ({
+    id,
+    name,
+    type,
+    children: Array.from({ length: count }, (_, i) => ({ id: `${name}-m${i}`, letters_total_correct: score })),
+  });
+
+  test('flags oversize when placement pushes group size above IDEAL_MAX (8)', () => {
+    const groups = [makeGroup('g1', 'L1', 'Letters', 8)]; // adding 1 → size 9
+    const { placements } = insertIntoExistingGroups([makeChild('new', 10)], groups);
+    expect(placements[0].flags).toContain('oversize');
+  });
+
+  test('does not flag oversize when placement stays within ideal', () => {
+    const groups = [makeGroup('g1', 'L1', 'Letters', 7)]; // adding 1 → size 8 (ideal)
+    const { placements } = insertIntoExistingGroups([makeChild('new', 10)], groups);
+    expect(placements[0].flags).not.toContain('oversize');
+  });
+
+  test('flags no-capacity when every group is at MAX and still places in closest', () => {
+    const groups = [
+      makeGroup('g1', 'L1', 'Letters', 9, 5),   // all at MAX; L1 closer to score
+      makeGroup('g2', 'L2', 'Letters', 9, 20),
+    ];
+    const { placements } = insertIntoExistingGroups([makeChild('new', 6)], groups);
+    expect(placements[0].groupName).toBe('L1');
+    expect(placements[0].flags).toContain('no-capacity');
+    expect(placements[0].flags).toContain('oversize');
+  });
+});
+
+describe('insertIntoExistingGroups — multiple insertions', () => {
+  test('running updated state between placements (second child sees first placed)', () => {
+    // L1 at 8 members; adding two children. First lands in L1 (closer median).
+    // Second should then prefer L1 less (size grew to 9 = MAX) and go elsewhere if closer group exists.
+    const groups = [
+      {
+        id: 'g1',
+        name: 'L1',
+        type: 'Letters',
+        children: Array.from({ length: 8 }, () => ({ letters_total_correct: 10 })),
+      },
+      {
+        id: 'g2',
+        name: 'L2',
+        type: 'Letters',
+        children: Array.from({ length: 5 }, () => ({ letters_total_correct: 20 })),
+      },
+    ];
+    const { placements, updatedGroups } = insertIntoExistingGroups(
+      [makeChild('a', 11), makeChild('b', 12)],
+      groups,
+    );
+    expect(placements[0].groupName).toBe('L1'); // L1 size becomes 9
+    expect(placements[1].groupName).toBe('L2'); // L1 now at MAX, so L2 chosen
+    expect(updatedGroups.find(g => g.id === 'g1').children).toHaveLength(9);
+    expect(updatedGroups.find(g => g.id === 'g2').children).toHaveLength(6);
+  });
+
+  test('does not mutate input groups', () => {
+    const groups = [
+      { id: 'g1', name: 'L1', type: 'Letters', children: [{ letters_total_correct: 5 }] },
+    ];
+    const originalMemberCount = groups[0].children.length;
+    insertIntoExistingGroups([makeChild('a', 5)], groups);
+    expect(groups[0].children).toHaveLength(originalMemberCount);
   });
 });
