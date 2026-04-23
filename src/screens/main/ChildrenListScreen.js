@@ -20,7 +20,7 @@ import StatBar from '../../components/dashboard/StatBar';
 
 export default function ChildrenListScreen({ navigation }) {
   const { children, groups, childrenGroups, loading, loadChildren } = useChildren();
-  const { classes, schools, loading: classesLoading, loadClasses, getChildrenInClass } = useClasses();
+  const { classes, schools, loading: classesLoading, loadClasses, loadSchools, getChildrenInClass } = useClasses();
   const { refreshSyncStatus } = useOffline();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +76,7 @@ export default function ChildrenListScreen({ navigation }) {
     setRefreshing(true);
     await loadChildren();
     await loadClasses();
+    await loadSchools();
     await refreshSyncStatus();
     setRefreshing(false);
   };

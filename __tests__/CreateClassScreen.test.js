@@ -4,6 +4,7 @@ import { PaperProvider } from 'react-native-paper';
 import CreateClassScreen from '../src/screens/children/CreateClassScreen';
 
 const mockAddClass = jest.fn().mockResolvedValue({ success: true });
+const mockLoadSchools = jest.fn().mockResolvedValue(undefined);
 const mockNavigationGoBack = jest.fn();
 
 jest.mock('../src/context/ClassesContext', () => ({
@@ -13,7 +14,16 @@ jest.mock('../src/context/ClassesContext', () => ({
       { id: 'school-2', name: 'Hilltop School' },
     ],
     addClass: mockAddClass,
+    loadSchools: mockLoadSchools,
   }),
+}));
+
+jest.mock('../src/context/OfflineContext', () => ({
+  useOffline: () => ({ isOnline: true }),
+}));
+
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: jest.fn(),
 }));
 
 const navigation = { goBack: mockNavigationGoBack };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import {
   Text,
@@ -10,13 +10,17 @@ import {
   Portal,
   Dialog,
   RadioButton,
+  ActivityIndicator,
 } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing } from '../../constants/colors';
 import { useClasses } from '../../context/ClassesContext';
+import { useOffline } from '../../context/OfflineContext';
 import { GRADES, HOME_LANGUAGES } from '../../constants/options';
 
 export default function CreateClassScreen({ navigation }) {
-  const { schools, addClass } = useClasses();
+  const { schools, addClass, loadSchools } = useClasses();
+  const { isOnline } = useOffline();
 
   const [schoolId, setSchoolId] = useState('');
   const [schoolName, setSchoolName] = useState('');
@@ -31,7 +35,29 @@ export default function CreateClassScreen({ navigation }) {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [refreshingSchools, setRefreshingSchools] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  // Auto-retry schools fetch on focus when the cache is empty. Catches the
+  // case where the app's initial load happened before schools were populated
+  // server-side (e.g. admin imports schools while a session is already open).
+  useFocusEffect(
+    useCallback(() => {
+      if (schools.length === 0) {
+        setRefreshingSchools(true);
+        loadSchools().finally(() => setRefreshingSchools(false));
+      }
+    }, [schools.length, loadSchools]),
+  );
+
+  const handleRetrySchools = async () => {
+    setRefreshingSchools(true);
+    try {
+      await loadSchools();
+    } finally {
+      setRefreshingSchools(false);
+    }
+  };
 
   const validate = () => {
     const newErrors = {};
@@ -87,9 +113,32 @@ export default function CreateClassScreen({ navigation }) {
             </Text>
 
             {noSchools && (
-              <Text variant="bodySmall" style={styles.warningText}>
-                Connect to the internet to load schools before creating a class.
-              </Text>
+              <View style={styles.statusBlock}>
+                {refreshingSchools ? (
+                  <View style={styles.statusRow}>
+                    <ActivityIndicator size="small" />
+                    <Text variant="bodySmall" style={styles.infoText}>Loading schools…</Text>
+                  </View>
+                ) : !isOnline ? (
+                  <Text variant="bodySmall" style={styles.warningText}>
+                    Connect to the internet to load schools before creating a class.
+                  </Text>
+                ) : (
+                  <View style={styles.statusRow}>
+                    <Text variant="bodySmall" style={styles.warningText}>
+                      No schools loaded yet.
+                    </Text>
+                    <Button
+                      mode="text"
+                      compact
+                      onPress={handleRetrySchools}
+                      style={styles.retryBtn}
+                    >
+                      Retry
+                    </Button>
+                  </View>
+                )}
+              </View>
             )}
 
             {/* School picker */}
@@ -272,6 +321,19 @@ const styles = StyleSheet.create({
   },
   warningText: {
     color: colors.error,
+  },
+  infoText: {
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+  },
+  statusBlock: {
     marginBottom: spacing.md,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  retryBtn: {
+    marginLeft: spacing.xs,
   },
 });
