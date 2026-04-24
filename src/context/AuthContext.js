@@ -115,11 +115,13 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
 
-      // Then fetch from Supabase
+      // Then fetch from Supabase. ZZ stores EA profile metadata in
+      // staff_identity_links (keyed by user_id), not in a separate users
+      // table — see supabase-migrations/00_zazi_izandi_initial.sql.
       const { data, error } = await supabase
-        .from('users')
+        .from('staff_identity_links')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
