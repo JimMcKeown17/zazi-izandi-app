@@ -1,265 +1,146 @@
-# Masi Field Staff App
+# Zazi iZandi Mobile App
 
-A React Native mobile application for Masi, a nonprofit, to manage their field staff's work with children, track time, and record educational sessions.
+A React Native mobile application for **Zazi iZandi (ZZ)**, a literacy programme run by the Masinyusane nonprofit in South Africa's Eastern Cape. The app supports Education Assistants (EAs) teaching reading to children in under-resourced schools: time tracking, children management, session recording, EGRA letter assessments, and auto-grouping.
+
+Forked from the Masi field-staff app and diverging as its own product. See `CLAUDE.md` for architectural context and `documentation/zazi-izandi-fork-planv2.md` for the fork rationale.
 
 ## Features
 
-- ✅ User authentication with Supabase
-- ✅ Time tracking with geolocation
-- ✅ Children management
-- ✅ Session recording with dynamic forms based on job title
-- ✅ Offline-first architecture with automatic sync
-- ✅ Session history (view-only)
+- ✅ Supabase authentication (admin-added users at launch)
+- ✅ GPS-verified time tracking (sign in / sign out)
+- ✅ Children + classes + schools management (admin-managed school directory)
+- ✅ Session recording with session timer
+- ✅ EGRA letter assessments + Letter Tracker per child
+- ✅ Auto-grouping (splits children into Letters / Blending tracks, size-optimized)
+- ✅ Groups view with per-group stats (sessions this week, current letter, progress, size)
+- ✅ Offline-first architecture with background sync
+- 🚧 AI coach (daily brief + chat) — Phase 2, backed by FastAPI service
 
 ## Tech Stack
 
-- React Native (Expo)
-- JavaScript (no TypeScript)
-- Supabase (Backend & Auth)
+- React Native (Expo SDK 54) — JavaScript, no TypeScript
+- Supabase (Postgres + Auth + RLS)
+- React Navigation (bottom tabs + native stack)
 - React Native Paper (UI)
-- React Navigation
-- AsyncStorage (Offline storage)
+- AsyncStorage (offline cache + sync queue)
+- Jest (`jest-expo` preset)
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (macOS) or Android Studio (for emulator)
-- Supabase account
+- Node.js 18+
+- npm
+- Expo CLI (`npm install -g expo-cli`) — optional, `npx expo` works
+- iOS Simulator (Xcode) or Android Emulator (Android Studio), or Expo Go on a physical device
+- EAS CLI (`npm install -g eas-cli`) for cloud builds
 
-## Setup Instructions
+## Setup
 
-### 1. Clone and Install
+### 1. Install dependencies
 
 ```bash
-cd masi-app
+git clone https://github.com/JimMcKeown17/zazi-izandi-app.git
+cd zazi-izandi-app
 npm install
 ```
 
-### 2. Set Up Supabase
+### 2. Configure environment
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to Project Settings → API
-3. Copy your project URL and anon/public key
-
-### 3. Create Database Tables
-
-Run these SQL commands in Supabase SQL Editor:
-
-```sql
--- Users table (extends auth.users)
-CREATE TABLE users (
-  id UUID REFERENCES auth.users PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  job_title TEXT NOT NULL CHECK (job_title IN ('Literacy Coach', 'Numeracy Coach', 'ZZ Coach', 'Yeboneer')),
-  assigned_school TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Children table
-CREATE TABLE children (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  first_name TEXT NOT NULL,
-  last_name TEXT NOT NULL,
-  teacher TEXT,
-  class TEXT,
-  age INTEGER,
-  school TEXT,
-  assigned_staff_id UUID REFERENCES users(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Time entries table
-CREATE TABLE time_entries (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) NOT NULL,
-  sign_in_time TIMESTAMP WITH TIME ZONE NOT NULL,
-  sign_in_lat DECIMAL,
-  sign_in_lon DECIMAL,
-  sign_out_time TIMESTAMP WITH TIME ZONE,
-  sign_out_lat DECIMAL,
-  sign_out_lon DECIMAL,
-  synced BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Sessions table
-CREATE TABLE sessions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) NOT NULL,
-  session_type TEXT NOT NULL,
-  session_date DATE NOT NULL,
-  children_ids UUID[] NOT NULL,
-  activities JSONB,
-  notes TEXT,
-  synced BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Enable Row Level Security
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE children ENABLE ROW LEVEL SECURITY;
-ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for users
-CREATE POLICY "Users can view own profile" ON users
-  FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile" ON users
-  FOR UPDATE USING (auth.uid() = id);
-
--- RLS Policies for children
-CREATE POLICY "Users can view assigned children" ON children
-  FOR SELECT USING (assigned_staff_id = auth.uid());
-
-CREATE POLICY "Users can insert children" ON children
-  FOR INSERT WITH CHECK (assigned_staff_id = auth.uid());
-
-CREATE POLICY "Users can update assigned children" ON children
-  FOR UPDATE USING (assigned_staff_id = auth.uid());
-
--- RLS Policies for time_entries
-CREATE POLICY "Users can view own time entries" ON time_entries
-  FOR SELECT USING (user_id = auth.uid());
-
-CREATE POLICY "Users can insert own time entries" ON time_entries
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "Users can update own time entries" ON time_entries
-  FOR UPDATE USING (user_id = auth.uid());
-
--- RLS Policies for sessions
-CREATE POLICY "Users can view own sessions" ON sessions
-  FOR SELECT USING (user_id = auth.uid());
-
-CREATE POLICY "Users can insert own sessions" ON sessions
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-```
-
-### 4. Configure Environment Variables
+Copy the template and fill in Supabase credentials:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your Supabase credentials:
+Edit `.env`:
 
 ```
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
+EXPO_PUBLIC_SUPABASE_URL=https://qpgvfyxnamrawolclzfn.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_…
 ```
 
-### 5. Create Test User
+The ZZ Supabase project URL and publishable key are also mirrored in `app.json → extra` so EAS cloud builds (which don't read `.env.local`) can still access them. If you add a new `EXPO_PUBLIC_*` var, **add it in both places** — see the `supabaseClient.js` fallback pattern.
 
-In Supabase dashboard:
-1. Go to Authentication → Users
-2. Click "Add user"
-3. Create a test user with email/password
-4. Then insert a profile in the users table:
-
-```sql
-INSERT INTO users (id, first_name, last_name, job_title, assigned_school)
-VALUES (
-  'USER_ID_FROM_AUTH',
-  'John',
-  'Doe',
-  'Literacy Coach',
-  'Example School'
-);
-```
-
-## Running the App
-
-### Start Development Server
+### 3. Run the app
 
 ```bash
-npm start
+npx expo start           # dev server
+npx expo start --ios     # iOS Simulator
+npx expo start --android # Android Emulator
 ```
 
-### Run on iOS Simulator
+Or scan the QR code with Expo Go on a physical device.
+
+### 4. Cloud builds (EAS)
 
 ```bash
-npm run ios
+eas build --profile preview --platform ios
+eas build --profile preview --platform android
 ```
 
-### Run on Android Emulator
+## Database
 
-```bash
-npm run android
-```
+Schema lives in `supabase-migrations/` as consolidated SQL. Current migrations:
 
-### Run on Physical Device
+- `00_zazi_izandi_initial.sql` — full baseline schema (11 tables: staff_identity_links, schools, classes, children, staff_children junction, groups, children_groups junction, time_entries, sessions, assessments, letter_mastery). All functions pinned to `search_path = public, pg_temp`; all RLS policies use `(select auth.uid())` for per-query evaluation.
+- `01_extend_schools.sql` — adds metadata columns to `schools` (airtable_record_id, masi_school_id, suburb, latitude/longitude, google_maps_url, info).
 
-1. Install Expo Go app on your phone
-2. Scan the QR code from the terminal
+The consolidated migration ran against the ZZ Supabase project on 2026-04-23 via `mcp__supabase__apply_migration`. New migrations are applied the same way — they show up in `list_migrations`.
 
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── common/           # Reusable UI components
-│   ├── session-forms/    # Job-specific session forms
-│   └── children/         # Child management components
+│   ├── assessment/      # EGRA grid, timer, last-letter sheet
+│   ├── children/        # Child form, group picker, child card bits
+│   ├── common/          # Button, Input, Card, LoadingSpinner, SyncIndicator
+│   ├── dashboard/       # StatBar, RankedBarRow for Home dashboard
+│   ├── groups/          # Preview-group picker for auto-grouping
+│   └── session/         # Session timer
+├── constants/           # colors, literacyConstants (LETTER_ORDER), egraConstants, options
+├── context/             # AuthContext, OfflineContext, ChildrenContext, ClassesContext
+├── hooks/               # useTimeTracking
+├── navigation/          # AppNavigator (tabs + stacks)
 ├── screens/
-│   ├── auth/            # Login, forgot password
-│   └── main/            # Home, time tracking, children, sessions
-├── services/
-│   ├── supabaseClient.js    # Supabase configuration
-│   ├── offlineSync.js       # Sync service (to be built)
-│   └── locationService.js   # Geolocation (to be built)
-├── context/
-│   ├── AuthContext.js       # Authentication state
-│   └── OfflineContext.js    # Offline sync state (to be built)
-├── utils/
-│   ├── storage.js           # AsyncStorage wrapper
-│   └── validators.js        # Form validation (to be built)
-├── navigation/
-│   └── AppNavigator.js      # Navigation setup
-└── constants/
-    ├── colors.js            # Theme colors
-    └── jobTitles.js         # Job title constants
+│   ├── auth/            # Login, ForgotPassword
+│   ├── main/            # Home, Today, ChildrenList, Assessments, Profile, SyncStatus
+│   ├── children/        # ClassDetail, CreateClass, EditClass, AddChild, EditChild
+│   ├── sessions/        # SessionForm, SessionHistory, LiteracySessionForm
+│   ├── assessments/     # EGRA screens + LetterTracker
+│   ├── groups/          # AutoGroupingPreview, Groups (stats view)
+│   └── insights/        # Letter mastery / assessment / session count rankings
+├── services/            # supabaseClient, offlineSync, locationService
+└── utils/               # storage, dashboardStats, autoGrouping, groupStats,
+                         # letterMastery, debugExport, logger
 ```
 
-## Development Status
+## Testing
 
-### ✅ Completed
-- Project setup with Expo
-- Supabase integration
-- Authentication flow
-- Basic navigation
-- Storage utilities
-- Theme constants
+```bash
+npm test
+```
 
-### 🚧 In Progress
-- Time tracking screen
-- Children management
-- Session recording forms
-- Offline sync service
+Current coverage: algorithm + data-projection helpers (autoGrouping, groupStats, storage helpers) and a handful of screen-level sanity tests. 68 tests pass as of this writing.
 
-### 📋 To Do
-- Session history view
-- Location services
-- Form validation
-- Error handling improvements
-- Testing
+## Offline Sync
+
+All writes save locally first with `synced: false`, then a background job upserts to Supabase when online. Last-write-wins conflict resolution; exponential backoff with up to 5 retry attempts. Entry point: `src/services/offlineSync.js`. Storage abstraction: `src/utils/storage.js` (typed `STORAGE_KEYS`).
+
+One known trap: Postgres upserts require SELECT visibility through RLS to check the unique index, even when no conflict exists. The children and classes tables use a **dual SELECT policy pattern** (junction-based + direct `created_by = (select auth.uid())`) to make this work for offline-synced inserts. Don't remove either policy assuming they're redundant — see `CLAUDE.md` for details.
+
+## Deployment
+
+See `documentation/zazi-izandi-fork-planv2.md` for the Phase 1-3 plan. Key operational docs for future port:
+- **PRD.md** (to port from Masi) — full product requirements
+- **LEARNING.md** (to port from Masi) — architectural decisions narrative
+- **DATABASE_SCHEMA_GUIDE.md** (to port from Masi) — schema reference
+
+Until those land, the approved plan (`~/.claude/plans/can-you-consider-this-polished-allen.md`) and the consolidated migration file are authoritative.
 
 ## Contributing
 
-See `Claude.md` for detailed project specifications and development guidelines.
-
-## Other Notes
-
-Using https://hotpot.ai/ and Canva to help create images for App Stores
-There are multiple versions of the logos saved in the assets folder.
-I didn't use it, but https://easyappicon.com/ seems like a helpful site.
+Branch off `main` once the app ships to EAs; pre-launch, direct commits to `main` are fine. See `CLAUDE.md` for project-wide conventions (commit discipline, bottom-sheet UX preference, Python-preferred backend, etc.).
 
 ## License
 
-Proprietary - Nonprofit Organization
+Proprietary — Masinyusane nonprofit.
